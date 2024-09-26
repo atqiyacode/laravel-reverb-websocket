@@ -1,0 +1,97 @@
+#!/bin/bash
+
+set -e
+
+# Replace these with your bot token and chat ID
+TELEGRAM_BOT_TOKEN="<YOUR_BOT_TOKEN>"
+TELEGRAM_CHAT_ID="<YOUR_CHAT_ID>"
+
+function send_telegram_alert {
+    local message="$1"
+    curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+    -d chat_id="$TELEGRAM_CHAT_ID" \
+    -d text="$message"
+}
+
+function error_exit {
+    local message="$1"
+    send_telegram_alert "🔴 Deployment failed: $message"
+    exit 1
+}
+
+echo "✅ Deploying Application ..."
+
+# Enter maintenance mode
+if php artisan down; then
+    echo "✅ Application is now in maintenance mode."
+else
+    error_exit "🚨 Failed to enter maintenance mode."
+fi
+
+# Update codebase
+if git pull origin development; then
+    echo "✅ Codebase updated from development."
+else
+    error_exit "🚨 Failed to update codebase."
+fi
+
+# Install dependencies
+if composer install --no-interaction --prefer-dist --optimize-autoloader; then
+    echo "✅ Composer dependencies installed."
+else
+    error_exit "🚨 Failed to install composer dependencies."
+fi
+
+# Cache view
+if php artisan view:cache; then
+    echo "✅ Cache Views."
+else
+    error_exit "🚨 Failed to Cache Views."
+fi
+
+# Cache config
+if php artisan config:cache; then
+    echo "✅ Cache configs."
+else
+    error_exit "🚨 Failed to Cache configs."
+fi
+
+# Cache route
+if php artisan route:cache; then
+    echo "✅ Cache routes."
+else
+    error_exit "🚨 Failed to Cache routes."
+fi
+
+# Cache event
+if php artisan event:cache; then
+    echo "✅ Cache events."
+else
+    error_exit "🚨 Failed to Cache events."
+fi
+
+# Regenerate autoload files
+if composer dump-autoload; then
+    echo "✅ Autoload files regenerated."
+else
+    error_exit "🚨 Failed to regenerate autoload files."
+fi
+
+# Run Migrate and Seeder
+if php artisan migrate:fresh --seed; then
+    echo "✅ Success Run Migration."
+else
+    error_exit "🚨 Failed to exit maintenance mode."
+fi
+
+# Exit maintenance mode
+if php artisan up; then
+    echo "✅ Application is now live."
+else
+    error_exit "🚨 Failed to exit maintenance mode."
+fi
+
+# Send success alert
+send_telegram_alert "🟢 Deployment succeeded. The application is now live."
+
+echo "✅ Application Deployed Successfully"
