@@ -77,13 +77,6 @@ else
     error_exit "🚨 Failed to regenerate autoload files."
 fi
 
-# Run Migrate and Seeder
-if php artisan migrate:fresh --seed; then
-    echo "✅ Success Run Migration."
-else
-    error_exit "🚨 Failed to exit maintenance mode."
-fi
-
 # Exit maintenance mode
 if php artisan up; then
     echo "✅ Application is now live."
