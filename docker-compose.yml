@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: staging-ktt-app
+    restart: unless-stopped
+    working_dir: /var/www
+    ports:
+      - "${REVERB_SERVER_PORT:-8080}:8080"
+    volumes:
+      - ./:/var/www
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+      - ./docker/supervisor/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+    networks:
+      - staging-ktt-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - REVERB_SERVER_HOST=0.0.0.0
+      - REVERB_SERVER_PORT=8080
+
+  db:
+    image: mysql:8.0
+    container_name: staging-ktt-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_USER: ${DB_USERNAME:-laravel}
+    volumes:
+      - dbdata:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - staging-ktt-network
+
+  redis:
+    image: redis:alpine
+    container_name: staging-ktt-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - staging-ktt-network
+
+networks:
+  staging-ktt-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
